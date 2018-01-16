@@ -83,8 +83,8 @@ while True:
             rank = sess.run(rankH, feed_dict={x: batch_xs[index]})
             rankSum = rankSum + rank
             if rank <= 10:
-                rankSum = rankSum + 1
+                precision = precision + 1
 
-        print(rankSum / 100, precision / 100)
+        print('MeanRank =', rankSum / 100, 'Hit@10 =', precision / 100.0)
 
     BATCH_INDEX = BATCH_INDEX + 1
