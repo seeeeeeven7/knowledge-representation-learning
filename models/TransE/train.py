@@ -5,7 +5,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 # Configuration
 D = 300
-BATCH_SIZE = 100
+BATCH_SIZE = 1000
 MARGIN = 1.0
 
 # Load data
@@ -45,12 +45,6 @@ H2R = tf.nn.l2_normalize(tf.nn.embedding_lookup(ERs, Y[:,0]), 1)
 R2R = tf.nn.embedding_lookup(RRs, Y[:,1])
 T2R = tf.nn.l2_normalize(tf.nn.embedding_lookup(ERs, Y[:,2]), 1)
 
-# H1R = tf.nn.embedding_lookup(ERs, X[:,0])
-# R1R = tf.nn.embedding_lookup(RRs, X[:,1])
-# T1R = tf.nn.embedding_lookup(ERs, X[:,2])
-# H2R = tf.nn.embedding_lookup(ERs, Y[:,0])
-# R2R = tf.nn.embedding_lookup(RRs, Y[:,1])
-# T2R = tf.nn.embedding_lookup(ERs, Y[:,2])
 loss = tf.reduce_mean(tf.nn.relu(tf.norm(H1R + R1R - T1R, axis = 1) + MARGIN - tf.norm(H2R + R2R - T2R, axis = 1)))
 
 # Initialize
@@ -84,8 +78,13 @@ while True:
 
     if BATCH_INDEX % 1000 == 0:
         rankSum = 0
-        for index in range(20):
-            rankSum = rankSum + sess.run(rankH, feed_dict={x: batch_xs[index]})
-        print(rankSum / 20)
+        precision = 0
+        for index in range(100):
+            rank = sess.run(rankH, feed_dict={x: batch_xs[index]})
+            rankSum = rankSum + rank
+            if rank <= 10:
+                rankSum = rankSum + 1
+
+        print(rankSum / 100, precision / 100)
 
     BATCH_INDEX = BATCH_INDEX + 1
