@@ -15,6 +15,8 @@ with open('../../data/WN18/wordnet-mlj12-train.txt', 'r') as trainfile:
 
 triples = list(map(lambda x : x.split('\t'), triples))
 
+# prework
+
 entity_index = {}
 relation_index = {}
 
