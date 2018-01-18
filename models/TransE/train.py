@@ -65,9 +65,50 @@ TR = tf.nn.l2_normalize(tf.nn.embedding_lookup(ERs, x[2]), 0) # [300]
 rankH = tf.count_nonzero(tf.nn.relu(EPS - tf.norm(tf.nn.l2_normalize(ERs, 1) - (TR - RR), axis = 1) + tf.norm(TR - RR - HR)))
 rankT = tf.count_nonzero(tf.nn.relu(EPS - tf.norm(tf.nn.l2_normalize(ERs, 1) - (HR + RR), axis = 1) + tf.norm(TR - RR - HR)))
 
+def validate(triple_limit, filename):
+    rankSum = 0
+    hit10 = 0
+    hit5 = 0
+    hit2 = 0
+    hit1 = 0
+    count = 0
+    for triple in triples_valid:
+        if count == triple_limit:
+            break
+        if triple[0] not in entity_index:
+            continue
+        if triple[1] not in relation_index:
+            continue
+        if triple[2] not in entity_index:
+            continue
+        count = count + 1
+        rankh = sess.run(rankH, feed_dict = {x: [entity_index[triple[0]], relation_index[triple[1]], entity_index[triple[2]]]})
+        rankt = sess.run(rankT, feed_dict = {x: [entity_index[triple[0]], relation_index[triple[1]], entity_index[triple[2]]]})
+        rankSum = rankSum + rankh + rankt
+        if rankh <= 10:
+            hit10 = hit10 + 1
+        if rankh <= 5:
+            hit5 = hit5 + 1
+        if rankh <= 2:
+            hit2 = hit2 + 1
+        if rankh <= 1:
+            hit1 = hit1 + 1
+        if rankt <= 10:
+            hit10 = hit10 + 1
+        if rankt <= 5:
+            hit5 = hit5 + 1
+        if rankt <= 2:
+            hit2 = hit2 + 1
+        if rankt <= 1:
+            hit1 = hit1 + 1
+
+    print('MeanRank =', rankSum / (count * 2), 'Hit@10 =', hit10 / (count * 2), 'Hit@5 =', hit5 / (count * 2), 'Hit@2 =', hit2 / (count * 2), 'Hit@1 =', hit1 / (count * 2))
+    with open(filename, "a") as logfile:
+        print(BATCH_INDEX, rankSum / (count * 2), hit10 / (count * 2), hit5 / (count * 2), hit2 / (count * 2), hit1 / (count * 2), file = logfile)
+
 # Train
 train_step = tf.train.GradientDescentOptimizer(0.5).minimize(loss)
-BATCH_INDEX = 0
+BATCH_INDEX = 1
 while True:
     batch_xs = []
     batch_ys = []
@@ -80,50 +121,21 @@ while True:
             batch_ys.append([numpy.random.randint(len(entity_index)), relation_index[triples[index][1]], entity_index[triples[index][2]]])
     sess.run(train_step, feed_dict={X: batch_xs, Y:batch_ys})
 
-    if BATCH_INDEX % 100 == 0:
+    if BATCH_INDEX % 10 == 0:
         print(BATCH_INDEX, sess.run(loss, feed_dict={X: batch_xs, Y:batch_ys}))
         with open("loss.log", "a") as logfile:
             print(BATCH_INDEX, sess.run(loss, feed_dict={X: batch_xs, Y:batch_ys}), file = logfile)
 
     if BATCH_INDEX % 1000 == 0:
-        rankSum = 0
-        hit10 = 0
-        hit5 = 0
-        hit2 = 0
-        hit1 = 0
-        count = 0
-        for triple in triples_valid:
-            #if count == 1000:
-            #    break
-            if triple[0] not in entity_index:
-                continue
-            if triple[1] not in relation_index:
-                continue
-            if triple[2] not in entity_index:
-                continue
-            count = count + 1
-            rankh = sess.run(rankH, feed_dict = {x: [entity_index[triple[0]], relation_index[triple[1]], entity_index[triple[2]]]})
-            rankt = sess.run(rankT, feed_dict = {x: [entity_index[triple[0]], relation_index[triple[1]], entity_index[triple[2]]]})
-            rankSum = rankSum + rankh + rankt
-            if rankh <= 10:
-                hit10 = hit10 + 1
-            if rankh <= 5:
-                hit5 = hit5 + 1
-            if rankh <= 2:
-                hit2 = hit2 + 1
-            if rankh <= 1:
-                hit1 = hit1 + 1
-            if rankt <= 10:
-                hit10 = hit10 + 1
-            if rankt <= 5:
-                hit5 = hit5 + 1
-            if rankt <= 2:
-                hit2 = hit2 + 1
-            if rankt <= 1:
-                hit1 = hit1 + 1
+        validate(10, 'validate10.log')
 
-        print('MeanRank =', rankSum / (count * 2), 'Hit@10 =', hit10 / (count * 2), 'Hit@5 =', hit5 / (count * 2), 'Hit@2 =', hit2 / (count * 2), 'Hit@1 =', hit1 / (count * 2))
-        with open("validation.log", "a") as logfile:
-            print(BATCH_INDEX, rankSum / (count * 2), hit10 / (count * 2), hit5 / (count * 2), hit2 / (count * 2), hit1 / (count * 2), file = logfile)
+    if BATCH_INDEX % 10000 == 0:
+        validate(100, 'validate100.log')
+
+    if BATCH_INDEX % 100000 == 0:
+        validate(1000, 'validate1000.log')
+
+    if BATCH_INDEX % 500000 == 0:
+        validate(5000, 'validate5000.log')
 
     BATCH_INDEX = BATCH_INDEX + 1
