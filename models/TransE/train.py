@@ -7,13 +7,17 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 D = 300
 BATCH_SIZE = 1000
 MARGIN = 1.0
+EPS = 1e-12
 
 # Load data
 
 with open('../../data/WN18/wordnet-mlj12-train.txt', 'r') as trainfile:
     triples = trainfile.read().splitlines()
+with open('../../data/WN18/wordnet-mlj12-train.txt', 'r') as validfile:
+    triples_valid = validfile.read().splitlines()
 
 triples = list(map(lambda x : x.split('\t'), triples))
+triples_valid = list(map(lambda x : x.split('\t'), triples_valid))
 
 # prework
 
@@ -55,14 +59,11 @@ tf.global_variables_initializer().run()
 
 # Evaluation Model
 x = tf.placeholder(tf.int64, [3])
-HHR = tf.nn.l2_normalize(tf.nn.embedding_lookup(ERs, x[0]), 0) # [300]
-RHR = tf.nn.embedding_lookup(RRs, x[1]) # [300]
-THR = tf.nn.l2_normalize(tf.nn.embedding_lookup(ERs, x[2]), 0) # [300]
-rankH = tf.count_nonzero(tf.nn.relu(-tf.norm(tf.nn.l2_normalize(ERs, 1) - (THR - RHR), axis = 1) + tf.norm(THR - RHR - HHR)))
-HTR = tf.nn.l2_normalize(tf.nn.embedding_lookup(ERs, x[0]), 0) # [300]
-RTR = tf.nn.embedding_lookup(RRs, x[1]) # [300]
-TTR = tf.nn.l2_normalize(tf.nn.embedding_lookup(ERs, x[2]), 0) # [300]
-rankT = tf.count_nonzero(tf.nn.relu(-tf.norm(tf.nn.l2_normalize(ERs, 1) - (TTR - RTR), axis = 1) + tf.norm(TTR - RTR - HTR)))
+HR = tf.nn.l2_normalize(tf.nn.embedding_lookup(ERs, x[0]), 0) # [300]
+RR = tf.nn.embedding_lookup(RRs, x[1]) # [300]
+TR = tf.nn.l2_normalize(tf.nn.embedding_lookup(ERs, x[2]), 0) # [300]
+rankH = tf.count_nonzero(tf.nn.relu(EPS - tf.norm(tf.nn.l2_normalize(ERs, 1) - (TR - RR), axis = 1) + tf.norm(TR - RR - HR)))
+rankT = tf.count_nonzero(tf.nn.relu(EPS - tf.norm(tf.nn.l2_normalize(ERs, 1) - (HR + RR), axis = 1) + tf.norm(TR - RR - HR)))
 
 # Train
 train_step = tf.train.GradientDescentOptimizer(0.5).minimize(loss)
@@ -81,7 +82,7 @@ while True:
 
     if BATCH_INDEX % 100 == 0:
         print(BATCH_INDEX, sess.run(loss, feed_dict={X: batch_xs, Y:batch_ys}))
-        with open("log.txt", "a") as logfile:
+        with open("loss.log", "a") as logfile:
             print(BATCH_INDEX, sess.run(loss, feed_dict={X: batch_xs, Y:batch_ys}), file = logfile)
 
     if BATCH_INDEX % 1000 == 0:
@@ -90,10 +91,19 @@ while True:
         hit5 = 0
         hit2 = 0
         hit1 = 0
-        count = 100
-        for index in range(count):
-            rankh = sess.run(rankH, feed_dict={x: batch_xs[index]})
-            rankt = sess.run(rankT, feed_dict={x: batch_xs[index]})
+        count = 0
+        for triple in triples_valid:
+            #if count == 1000:
+            #    break
+            if triple[0] not in entity_index:
+                continue
+            if triple[1] not in relation_index:
+                continue
+            if triple[2] not in entity_index:
+                continue
+            count = count + 1
+            rankh = sess.run(rankH, feed_dict = {x: [entity_index[triple[0]], relation_index[triple[1]], entity_index[triple[2]]]})
+            rankt = sess.run(rankT, feed_dict = {x: [entity_index[triple[0]], relation_index[triple[1]], entity_index[triple[2]]]})
             rankSum = rankSum + rankh + rankt
             if rankh <= 10:
                 hit10 = hit10 + 1
@@ -113,7 +123,7 @@ while True:
                 hit1 = hit1 + 1
 
         print('MeanRank =', rankSum / (count * 2), 'Hit@10 =', hit10 / (count * 2), 'Hit@5 =', hit5 / (count * 2), 'Hit@2 =', hit2 / (count * 2), 'Hit@1 =', hit1 / (count * 2))
-        with open("log.txt", "a") as logfile:
-            print('MeanRank =', rankSum / (count * 2), 'Hit@10 =', hit10 / (count * 2), 'Hit@5 =', hit5 / (count * 2), 'Hit@2 =', hit2 / (count * 2), 'Hit@1 =', hit1 / (count * 2), file = logfile)
+        with open("validation.log", "a") as logfile:
+            print(BATCH_INDEX, rankSum / (count * 2), hit10 / (count * 2), hit5 / (count * 2), hit2 / (count * 2), hit1 / (count * 2), file = logfile)
 
     BATCH_INDEX = BATCH_INDEX + 1
