@@ -11,10 +11,15 @@ EPS = 1e-12
 
 # Load data
 
-with open('../../data/WN18/wordnet-mlj12-train.txt', 'r') as trainfile:
+with open('../../data/FB15k/fb15k/freebase_mtr100_mte100-train.txt', 'r') as trainfile:
     triples = trainfile.read().splitlines()
-with open('../../data/WN18/wordnet-mlj12-train.txt', 'r') as validfile:
+with open('../../data/FB15k/fb15k/freebase_mtr100_mte100-valid.txt', 'r') as validfile:
     triples_valid = validfile.read().splitlines()
+
+# with open('../../data/WN18/wordnet-mlj12-train.txt', 'r') as trainfile:
+#     triples = trainfile.read().splitlines()
+# with open('../../data/WN18/wordnet-mlj12-train.txt', 'r') as validfile:
+#     triples_valid = validfile.read().splitlines()
 
 triples = list(map(lambda x : x.split('\t'), triples))
 triples_valid = list(map(lambda x : x.split('\t'), triples_valid))
